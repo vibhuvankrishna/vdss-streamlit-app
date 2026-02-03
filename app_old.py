@@ -208,69 +208,45 @@
 #             st.success(f"**Predicted VDss:** {pred:.3f} L/kg")
 #         except Exception as e:
 #             st.error(str(e))
+# below was the 2nd 
+# f
+
+
 
 from fastapi import FastAPI
 from pydantic import BaseModel
-import tensorflow as tf
-import numpy as np
-import pandas as pd
+import random
 
-from rdkit import Chem
-from rdkit.Chem import Descriptors, MACCSkeys
-from sklearn.preprocessing import StandardScaler
+app = FastAPI(
+    title="VDss Prediction API",
+    description="Temporary lightweight VDss predictor (mock)",
+    version="0.1.0"
+)
 
-# ----------------------------
-# Load model ONCE
-# ----------------------------
-MODEL_PATH = "models/rdkit_maccs_cnn.keras"
-
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-scaler = StandardScaler()
-
-app = FastAPI(title="VDss Predictor API")
-
-# ----------------------------
-# Request schema
-# ----------------------------
-class SMILESInput(BaseModel):
+# -------- Request schema --------
+class PredictRequest(BaseModel):
     smiles: str
 
-# ----------------------------
-# Feature extraction
-# ----------------------------
-def featurize(smiles: str):
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None
-
-    # RDKit descriptors
-    rdkit_desc = {name: func(mol) for name, func in Descriptors._descList}
-
-    # MACCS
-    maccs = list(MACCSkeys.GenMACCSKeys(mol))
-    maccs_dict = {f"MACCS_{i}": bit for i, bit in enumerate(maccs)}
-
-    X = pd.DataFrame([{**rdkit_desc, **maccs_dict}])
-    X = X.select_dtypes(include=[np.number])
-
-    X_scaled = scaler.fit_transform(X.values)
-    return X_scaled.reshape(1, X_scaled.shape[1], 1)
-
-# ----------------------------
-# Health check
-# ----------------------------
+# -------- Health check --------
 @app.get("/")
 def root():
-    return {"status": "VDss API is running"}
+    return {
+        "status": "ok",
+        "message": "VDss API running (mock mode)"
+    }
 
-# ----------------------------
-# Prediction endpoint
-# ----------------------------
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+# -------- Prediction endpoint --------
 @app.post("/predict")
-def predict_vdss(data: SMILESInput):
-    X = featurize(data.smiles)
-    if X is None:
-        return {"error": "Invalid SMILES"}
+def predict(req: PredictRequest):
+    vdss = round(random.uniform(0.8, 1.2), 3)  # around 1
 
-    pred = model.predict(X, verbose=0)[0][0]
-    return {"vdss": float(pred)}
+    return {
+        "smiles": req.smiles,
+        "vdss_kg": vdss,
+        "units": "L/kg",
+        "note": "Mock prediction (model disabled)"
+    }
